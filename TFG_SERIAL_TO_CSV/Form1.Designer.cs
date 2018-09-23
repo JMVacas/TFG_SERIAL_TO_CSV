@@ -75,8 +75,6 @@
             this.PuertoCombo.Size = new System.Drawing.Size(65, 21);
             this.PuertoCombo.TabIndex = 0;
             this.PuertoCombo.DropDown += new System.EventHandler(this.PuertoCombo_DropDown);
-            this.PuertoCombo.SelectedIndexChanged += new System.EventHandler(this.Seleccion_Puerto_SelectedIndexChanged);
-            // 
             // label1
             // 
             this.label1.AutoSize = true;

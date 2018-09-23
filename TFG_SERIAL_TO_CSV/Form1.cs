@@ -19,11 +19,11 @@ namespace TFG_SERIAL_TO_CSV
         string[] BaudRateItems = { "300", "600", "1200", "2400", "4800", "9600", "14400", "19200"
                 , "22800", "38400", "57600", "115200" };
         string[] Colores = { "IR_970", "IR_850", "Rojo", "Naranja", "Amarillo", "Verde", "Azul", "UV" };
-        int Progreso = 0;
         string Data_Received;   // Aqui se guarda un string temporal con todos los datos recibidos
         delegate void StringArgReturningVoidDelegate(string text);
         delegate void IntArgReturningVoidDelegate(int Value);
         delegate void ShowMessageDelegate(IWin32Window win32Window, string Texto, string Titulo, MessageBoxButtons messageBoxButtons, MessageBoxIcon messageBoxIcon);
+        bool Finish = false;
         public Form1()
         {
             InitializeComponent();
@@ -32,15 +32,7 @@ namespace TFG_SERIAL_TO_CSV
         private void Form1_Load(object sender, EventArgs e)
         {
             BaudRateCombo.Items.AddRange(BaudRateItems);
-            MessageBox.Show()
         }
-
-
-        private void Seleccion_Puerto_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
-
         private void PuertoCombo_DropDown(object sender, EventArgs e)
         {
             
@@ -53,12 +45,13 @@ namespace TFG_SERIAL_TO_CSV
         {
 
         }
-        //Desencadena el inicio de la recepcion de datos
+        //Desencadena el inicio de la recepcion de datos y envio de datos, se instancia la configuracion
         private void Start_Click(object sender, EventArgs e)
         {
             try
             {
                 Puerto_Serie.Close();
+                Barra_De_Progreso.Maximum = 8 * Convert.ToInt32(Input_Iteraciones.Text);
                 Puerto_Serie.PortName = PuertoCombo.SelectedItem.ToString();
                 Puerto_Serie.BaudRate = Convert.ToInt32(BaudRateCombo.SelectedItem);
                 Puerto_Serie.Open();
@@ -76,34 +69,43 @@ namespace TFG_SERIAL_TO_CSV
         private void Puerto_Serie_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             string Temporal = "";
-            Temporal = Puerto_Serie.ReadLine();
-            if (Data_Received.Contains("Iteraciones"))
+            Temporal = Puerto_Serie.ReadLine();//Se lee lo que hay en el buffer
+            if (Temporal.Contains("Iteraciones"))
             {
                 Puerto_Serie.Write(Input_Iteraciones.Text);
             }
-            else if (Data_Received.Contains("Ajuste"))
+            else if (Temporal.Contains("Ajuste"))
             {
                 Puerto_Serie.Write(Input_Ajuste.Text);
             }
-            else if (Data_Received.Contains("Progreso"))
+            else if (Temporal.Contains("Progreso"))
             {
-                Set_Progreso(Convert.ToInt32(Regex.Match(Temporal, @"\d")));                   
+                Set_Progreso(Convert.ToInt32(Regex.Match(Temporal, @"\d+").Value));                   
             }
-            else if (Data_Received.Contains("Finished"))
+            else if (Temporal.Contains("Finished"))
             {
                 SetText("Guardar");
                 ShowMessageBox(this, "El proceso ha finalizado correctamente", "Finalizado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Finish = true;
+            }
+            else
+            {
+                Data_Received += Temporal;
             }
         }
         //Cierra el puerto serie
         private void Parar_Click(object sender, EventArgs e)
         {
-            Puerto_Serie.Write("Stop");
-            Puerto_Serie.Close();
-            if (Data_Received.Contains("Finished"))
+            if (Finish)
             {
                 Explorer.Guardar(Data_Received);
                 Parar.Text = "Parar";
+                Finish = false;
+            }
+            else
+            {
+                Puerto_Serie.Write("Stop");
+                Puerto_Serie.Close();
             }
 
         }
@@ -163,7 +165,14 @@ namespace TFG_SERIAL_TO_CSV
             }
             else
             {
-                Barra_De_Progreso.Value = Value;
+                try
+                {
+                    Barra_De_Progreso.Value = Value;
+                }
+                finally
+                {
+
+                }
             }
         }
         private void ShowMessageBox(IWin32Window win32Window, string Texto, string Titulo, MessageBoxButtons messageBoxButtons, MessageBoxIcon messageBoxIcon)
@@ -172,7 +181,7 @@ namespace TFG_SERIAL_TO_CSV
             //PuertoSerie_Data_Received es necesario utilizar delegados
             if (Barra_De_Progreso.InvokeRequired)
             {
-                IntArgReturningVoidDelegate d = new IntArgReturningVoidDelegate(Set_Progreso);
+                ShowMessageDelegate d = new ShowMessageDelegate(ShowMessageBox);
                 Invoke(d, new object[] { win32Window, Texto, Titulo, messageBoxButtons, messageBoxIcon });
             }
             else
